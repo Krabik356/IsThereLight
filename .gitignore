@@ -1,0 +1,8 @@
+*.onnx
+*.onnx.json
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.wav
+.idea/
