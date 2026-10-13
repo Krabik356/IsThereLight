@@ -48,39 +48,60 @@ async def calls(call):
             await database.change_status(conn, call.from_user.id, "detector_joining")
             await bot.send_message(call.message.chat.id, text=f'*Під\'єднання* 🔌\n\nНадішли *код* детектора та *пароль* яким його *закодовано* ⌨️\n\n**Пиши у форматі: "код:пароль"**',parse_mode="Markdown")
 
+def get_and_validate_detectors_data(message):
+    try:
+        detectors_id, password = message.split(":")
+        if len(detectors_id) > 30 or len(password) > 50:
+            return None
+        return {"id": detectors_id,"password": password}
+    except:
+        return None
+
 @bot.message_handler()
 async def messages(message):
     async with pool.connection() as conn:
         status = await database.get_status(conn, message.from_user.id)
 
         if status == "detector_coding":
-            detectors_id, password = message.text.split(":")
-            is_detector_free = await database.is_detector_free(conn, detectors_id)
+            data = get_and_validate_detectors_data(message.text)
+            if data == None:
+                await bot.reply_to(message, text="*Помилка ⚠️*\n\n*Введені* вами дані *некоректн*і! ⌨️", parse_mode="Markdown")
+                return
+
+            is_detector_free = await database.is_detector_free(conn, data["id"])
             if not is_detector_free:
                 await bot.reply_to(message, text="*Помилка ⚠️*\n\nТакого детектору *не існує* або він вже *закодований* ⌨️...", parse_mode="Markdown")
                 return
 
-            await database.detector_coding(conn, detectors_id, message.from_user.id, password)
-            is_ok = await database.detector_user_relation(conn, detectors_id, message.from_user.id, password)
+            async with conn.transaction():
+                await database.detector_coding(conn, data["id"], message.from_user.id, data["password"])
+                is_ok = await database.detector_user_relation(conn, data["id"], message.from_user.id, data["password"])
+                await database.change_status(conn, message.from_user.id, "work")
+                if not is_ok:
+                    await bot.send_message(message.chat.id, text=f'*Помилка ⚠️*\n\nЗверніться в *тех-підтримку* 📲...', parse_mode="Markdown")
+                    return
 
-            if not is_ok:
-                await bot.send_message(message.chat.id, text=f'*Помилка ⚠️*\n\nЗверніться в *тех-підтримку* 📲...', parse_mode="Markdown")
             await bot.send_message(message.chat.id, text=f'*Чудово* 🥳\n\nВи успішно *зареєстрували* детектор! *Підключіть* його до електромережі і *відстежуйте* наявність світла в будинку в *реальному часі*. 🕛\n\n**Не забудьте записати пароль. 📓**', parse_mode="Markdown")
-            await database.change_status(conn, message.from_user.id, "work")
 
         elif status == "detector_joining":
-            detectors_id, password = message.text.split(":")
-            is_correct = await database.is_detector_correct(conn, detectors_id, password)
+            data = get_and_validate_detectors_data(message.text)
+            if data == None:
+                await bot.reply_to(message, text="*Помилка ⚠️*\n\n*Введені* вами дані *некоректн*і! ⌨️",parse_mode="Markdown")
+                return
 
+            is_correct = await database.is_detector_correct(conn, data["id"], data["password"])
             if not is_correct:
                 await bot.send_message(message.chat.id, text=f'*Помилка ⚠️*\n\nТакого детектора *не існує* або пароль *не правильний* 📲...', parse_mode="Markdown")
+                return
 
-            is_ok = await database.detector_user_relation(conn, detectors_id, message.from_user.id, password)
-            if not is_ok:
-                await bot.send_message(message.chat.id, text=f'*Помилка ⚠️*\n\nЗверніться в *тех-підтримку* 📲...', parse_mode="Markdown")
+            async with conn.transaction():
+                is_ok = await database.detector_user_relation(conn, data["id"], message.from_user.id, data["password"])
+                await database.change_status(conn, message.from_user.id, "work")
+                if not is_ok:
+                    await bot.send_message(message.chat.id, text=f'*Помилка ⚠️*\n\nЗверніться в *тех-підтримку* 📲...', parse_mode="Markdown")
+                    return
 
             await bot.send_message(message.chat.id, text=f'*Чудово* 🥳\n\nВи успішно підключились до детектора! Тепер ви *відстежуєте* наявність світла в *реальному часі*.', parse_mode="Markdown")
-            await database.change_status(conn, message.from_user.id, "work")
 
 
 async def main():

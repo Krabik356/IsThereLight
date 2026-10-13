@@ -25,13 +25,17 @@ async def get_status(conn: psycopg.AsyncConnection, user_id):
 
 async def is_detector_free(conn: psycopg.AsyncConnection, detector_id):
     async with conn.cursor(row_factory=dict_row) as cur:
-        result = await cur.execute("SELECT owner FROM detectors WHERE id=%s", (detector_id,))
-        owner = (await result.fetchone())["owner"]
-        print(owner)
-        if owner == None:
-            return True
+        await cur.execute("SELECT EXISTS(SELECT 1 FROM detectors WHERE id=%s)",(detector_id,))
+        is_exists = await cur.fetchone()
+        if not is_exists["exists"]:
+            return False
 
-        return False
+        result = await cur.execute("SELECT owner FROM detectors WHERE id=%s", (detector_id,))
+        owner = await result.fetchone()
+        if owner["owner"] != None:
+            return False
+
+        return True
 
 async def detector_coding(conn: psycopg.AsyncConnection, detector_id, user_id, detector_password):
     async with conn.cursor(row_factory=dict_row) as cur:
@@ -51,6 +55,6 @@ async def is_detector_correct(conn: psycopg.AsyncConnection, detector_id, detect
     async with conn.cursor() as cur:
         await cur.execute("SELECT EXISTS(SELECT 1 FROM detectors WHERE id=%s AND password=%s)",(detector_id, detector_password))
         is_correct = await cur.fetchone()
-        if not is_correct:
+        if not is_correct[0]:
             return False
         return True
