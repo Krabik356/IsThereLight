@@ -43,8 +43,10 @@ async def calls(call):
             await bot.send_message(call.message.chat.id, text=f'*Налаштування* ⚙️\n\nНадішли *код* написаний на *детекторі* і придуманий тобою пароль (до 50 символів) ⌨️\n\n**Пиши у форматі: "код:пароль"**', parse_mode="Markdown")
 
     elif call_data == "join":
-        # await database.add_user(call.from_user.id, call.message.chat.id)
-        pass
+        async with pool.connection() as conn:
+            await database.add_user(conn, call.from_user.id, call.message.chat.id)
+            await database.change_status(conn, call.from_user.id, "detector_joining")
+            await bot.send_message(call.message.chat.id, text=f'*Під\'єднання* 🔌\n\nНадішли *код* детектора та *пароль* яким його *закодовано* ⌨️\n\n**Пиши у форматі: "код:пароль"**',parse_mode="Markdown")
 
 @bot.message_handler()
 async def messages(message):
@@ -65,6 +67,21 @@ async def messages(message):
                 await bot.send_message(message.chat.id, text=f'*Помилка ⚠️*\n\nЗверніться в *тех-підтримку* 📲...', parse_mode="Markdown")
             await bot.send_message(message.chat.id, text=f'*Чудово* 🥳\n\nВи успішно *зареєстрували* детектор! *Підключіть* його до електромережі і *відстежуйте* наявність світла в будинку в *реальному часі*. 🕛\n\n**Не забудьте записати пароль. 📓**', parse_mode="Markdown")
             await database.change_status(conn, message.from_user.id, "work")
+
+        elif status == "detector_joining":
+            detectors_id, password = message.text.split(":")
+            is_correct = await database.is_detector_correct(conn, detectors_id, password)
+
+            if not is_correct:
+                await bot.send_message(message.chat.id, text=f'*Помилка ⚠️*\n\nТакого детектора *не існує* або пароль *не правильний* 📲...', parse_mode="Markdown")
+
+            is_ok = await database.detector_user_relation(conn, detectors_id, message.from_user.id, password)
+            if not is_ok:
+                await bot.send_message(message.chat.id, text=f'*Помилка ⚠️*\n\nЗверніться в *тех-підтримку* 📲...', parse_mode="Markdown")
+
+            await bot.send_message(message.chat.id, text=f'*Чудово* 🥳\n\nВи успішно підключились до детектора! Тепер ви *відстежуєте* наявність світла в *реальному часі*.', parse_mode="Markdown")
+            await database.change_status(conn, message.from_user.id, "work")
+
 
 async def main():
     await pool.open()
