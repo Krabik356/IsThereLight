@@ -11,7 +11,7 @@ load_dotenv()
 token = os.getenv("BOT_TOKEN")
 
 bot = AsyncTeleBot(token)
-pool = database.get_pool(2, 10, os.getenv("DB_NAME"), os.getenv("DB_USER"), int(os.getenv("DB_PASSWORD")))
+pool = database.get_pool(2, 10, os.getenv("DB_NAME"), os.getenv("DB_USER"), os.getenv("DB_PASSWORD"))
 
 
 def greetings_markup():

@@ -8,15 +8,20 @@ import httpx
 
 load_dotenv()
 
-pool = database.get_pool(2, 10, os.getenv("DB_NAME"), os.getenv("DB_USER"), int(os.getenv("DB_PASSWORD")))
+pool = database.get_pool(2, 10, os.getenv("DB_NAME"), os.getenv("DB_USER"), os.getenv("DB_PASSWORD"))
 is_checker_work = True
 token = os.getenv("BOT_TOKEN")
 
 async def times_checker():
+    print("start")
     async with pool.connection() as conn:
         while is_checker_work:
+            print("db start")
             chats = await database.get_chats_from_bad_detecrots(conn)
+            print("db end")
+            print(chats)
             for chat in chats:
+                print(chat)
                 async with httpx.AsyncClient(base_url="") as client:
                     await client.post(f'https://api.telegram.org/bot{token}/sendMessage', json={"chat_id": chat, "text": f'*Увага 📢!*\n\nСвітло в домі *вимкнулось* 🕯️...', "parse_mode": "Markdown"})
 
@@ -31,9 +36,9 @@ async def lifespan(app: FastAPI):
 
     yield
 
-    await pool.close()
     is_checker_work = False
     await task
+    await pool.close()
 
 app = FastAPI(lifespan=lifespan)
 
@@ -43,7 +48,7 @@ async def get_conn():
 
 @app.post("/remind/{detectors_id}", status_code=200)
 async def remind(req: Request, detectors_id: str, conn=Depends(get_conn)):
-    secret = req.get("secret")
+    secret = (await req.json())["secret"]
 
     is_ok = await database.detector_valid(conn, detectors_id, secret)
     if not is_ok:
@@ -56,3 +61,14 @@ async def remind(req: Request, detectors_id: str, conn=Depends(get_conn)):
                 await client.post(f'https://api.telegram.org/bot{token}/sendMessage',json={"chat_id": chat, "text": f'*УРААА 👏!!!*\n\nСвітло в домі *повернулось* 💡!',"parse_mode": "Markdown"})
 
 
+if __name__ == "__main__":
+    import selectors
+    import uvicorn
+
+    config = uvicorn.Config(app, host="0.0.0.0", port=8000)
+    server = uvicorn.Server(config)
+
+    asyncio.run(
+        server.serve(),
+        loop_factory=lambda: asyncio.SelectorEventLoop(selectors.SelectSelector()),
+    )

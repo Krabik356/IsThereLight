@@ -7,7 +7,8 @@ def get_pool(min_size, max_size, dbname, user, password):
         conninfo=f'dbname={dbname} user={user} password={password}',
         min_size= min_size,
         max_size= max_size,
-        open=False
+        open=False,
+        kwargs={"autocommit": True}
     )
 
 async def add_user(conn: psycopg.AsyncConnection, user_id, chat_id):
