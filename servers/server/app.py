@@ -22,7 +22,7 @@ async def times_checker():
             print(chats)
             for chat in chats:
                 print(chat)
-                async with httpx.AsyncClient(base_url="") as client:
+                async with httpx.AsyncClient() as client:
                     await client.post(f'https://api.telegram.org/bot{token}/sendMessage', json={"chat_id": chat, "text": f'*Увага 📢!*\n\nСвітло в домі *вимкнулось* 🕯️...', "parse_mode": "Markdown"})
 
             await asyncio.sleep(10)
@@ -56,9 +56,9 @@ async def remind(req: Request, detectors_id: str, conn=Depends(get_conn)):
 
     is_updated = await database.update_time(conn, detectors_id)
     if not is_updated[0]:
-        async with httpx.AsyncClient(base_url="") as client:
+        async with httpx.AsyncClient() as client:
             for chat in is_updated[1]:
-                await client.post(f'https://api.telegram.org/bot{token}/sendMessage',json={"chat_id": chat, "text": f'*УРААА 👏!!!*\n\nСвітло в домі *повернулось* 💡!',"parse_mode": "Markdown"})
+                await client.post(f'https://api.telegram.org/bot{token}/sendMessage',json={"chat_id": chat[0], "text": f'*УРААА 👏!!!*\n\nСвітло в домі *повернулось* 💡!',"parse_mode": "Markdown"})
 
 
 if __name__ == "__main__":

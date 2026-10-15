@@ -21,9 +21,11 @@ async def update_time(conn: psycopg.AsyncConnection, detectors_id):
     async with conn.cursor() as cur:
         await cur.execute("SELECT is_updated FROM detectors WHERE id=%s", (detectors_id,))
         is_updated = await cur.fetchone()
-        await cur.execute("SELECT u.chat_id FROM users u JOIN detectors_users ON u.id=du.user_id WHERE du.detector_id=%s",(detectors_id,))
+        await cur.execute("SELECT u.chat_id FROM users u JOIN detectors_users du ON u.id=du.user_id WHERE du.detector_id=%s",(detectors_id,))
         chats = await cur.fetchall()
         await cur.execute("UPDATE detectors SET last_time=%s, is_updated=%s WHERE id=%s", (time.time(), True, detectors_id))
+        print(is_updated)
+        print(is_updated[0])
         return (is_updated[0], chats)
 
 async def get_chats_from_bad_detecrots(conn: psycopg.AsyncConnection):
