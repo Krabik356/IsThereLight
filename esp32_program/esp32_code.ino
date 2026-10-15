@@ -30,7 +30,6 @@ bool send_remind_http(){
   serializeJson(doc, toSend);
 
   int code = client.POST(toSend);
-  Serial.println(code);
   client.end();
   if (code != 200){
     return false;
